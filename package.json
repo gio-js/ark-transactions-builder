@@ -1,0 +1,12 @@
+{
+  "scripts": {
+    "start": "./node_modules/.bin/tsc && node .\\dist\\index.js"
+  },
+  "devDependencies": {
+    "typescript": "^3.9.6"
+  },
+  "dependencies": {
+    "@arkecosystem/client": "^1.1.4",
+    "@arkecosystem/crypto": "^2.6.42"
+  }
+}
