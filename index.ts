@@ -1,4 +1,3 @@
-import { BusinessRegistrationTransaction } from './dist/transaction';
 /*
 Sign and submit a transaction with ARK Blockchain v2.6+
 Libs:
@@ -9,6 +8,8 @@ Libs:
 import { Connection } from '@arkecosystem/client'
 import { Transactions, Managers, Identities } from '@arkecosystem/crypto'
 import { ITransactionData } from '@arkecosystem/crypto/dist/interfaces'
+import { RegisterManufacturerTransaction } from './dist/transaction';
+
 
 
 const passphrase = "clay harbor enemy utility margin pretty hub comic piece aerobic umbrella acquire";
@@ -30,7 +31,7 @@ const getLatestBlockHeight = async (): Promise<number> => (await connection.get(
 const initCrypto = async () => {
     Managers.configManager.setFromPreset(network);
     Managers.configManager.setHeight(await getLatestBlockHeight());
-    Transactions.TransactionRegistry.registerTransactionType(BusinessRegistrationTransaction);
+    Transactions.TransactionRegistry.registerTransactionType(RegisterManufacturerTransaction);
 }
 
 /** Compute the wallet address from a passphrase */
@@ -92,8 +93,10 @@ const signCustomTransaction = async (
     fee: string = `${0.01 * 1e8}`,
     vendorField?: string,
 ) => {
+    const senderAddressId = getWalletAddress(passphrase);
+
     // Get wallet's next transaction nonce
-    const nextNonce = await getNextNonce(getWalletAddress(passphrase))
+    const nextNonce = await getNextNonce(senderAddressId)
 
     // Build the transaction
     let transactionToSend = Transactions.BuilderFactory
@@ -104,12 +107,12 @@ const signCustomTransaction = async (
         .version(2)
         .nonce(nextNonce)
 
-    transactionToSend.data.type = 100;
-    transactionToSend.data.typeGroup = 1001;
+    transactionToSend.data.type = 200;
+    transactionToSend.data.typeGroup = 2000;
     transactionToSend.data.asset = {
-        businessData: {
-            name: "facebook",
-            website: "www.facebook.com"
+        AnticounterfeitRegisterManufacturerTransaction: {
+            ManufacturerAddressId: senderAddressId,
+            ProductPrefixID: "AES1212"
         }
     };
 
@@ -142,6 +145,8 @@ const logBalances = async () => {
 };
 
 const init = async (customTransaction: boolean) => {
+    let res = null;
+
     try {
         // Init crypto lib
         await initCrypto()
@@ -157,7 +162,7 @@ const init = async (customTransaction: boolean) => {
                 recipientId, // Destination address
                 "0", // Send 1 ARK
                 "5000000000", // Pay 0.1 ARK transaction fee
-                'UniMI-AntiCounterfeit' // Bridge chain field (vendorField)
+                'UniMI-Anticounterfeit' // Bridge chain field (vendorField)
             )
 
         }
@@ -169,10 +174,11 @@ const init = async (customTransaction: boolean) => {
                 'UniMI-AntiCounterfeit' // Bridge chain field (vendorField)
             );
         }
-        console.log(transactionToSend)
+        //console.log(transactionToSend)
+        console.log(JSON.stringify(transactionToSend))
 
         // Submit the transaction to the blockchain
-        const res = await sendTransaction(transactionToSend)
+        res = await sendTransaction(transactionToSend)
         console.log(res.body.data);
 
     }
