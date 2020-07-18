@@ -1,3 +1,4 @@
+import { BusinessRegistrationTransaction, BusinessRegistrationBuilder, RegisterManufacturerBuilder, RegisterManufacturerTransaction } from './dist/transaction';
 /*
 Sign and submit a transaction with ARK Blockchain v2.6+
 Libs:
@@ -6,9 +7,10 @@ Libs:
 */
 
 import { Connection } from '@arkecosystem/client'
-import { Transactions, Managers, Identities } from '@arkecosystem/crypto'
+import { Transactions, Managers, Identities, Utils } from '@arkecosystem/crypto'
 import { ITransactionData } from '@arkecosystem/crypto/dist/interfaces'
-import { RegisterManufacturerTransaction } from './dist/transaction';
+import { SimpleTransactionBuilder, SimpleTransaction } from './dist/transaction';
+//import { RegisterManufacturerTransaction, RegisterManufacturerBuilder } from './dist/transaction';
 
 
 
@@ -32,6 +34,8 @@ const initCrypto = async () => {
     Managers.configManager.setFromPreset(network);
     Managers.configManager.setHeight(await getLatestBlockHeight());
     Transactions.TransactionRegistry.registerTransactionType(RegisterManufacturerTransaction);
+    Transactions.TransactionRegistry.registerTransactionType(SimpleTransaction);
+    Transactions.TransactionRegistry.registerTransactionType(BusinessRegistrationTransaction);
 }
 
 /** Compute the wallet address from a passphrase */
@@ -98,28 +102,35 @@ const signCustomTransaction = async (
     // Get wallet's next transaction nonce
     const nextNonce = await getNextNonce(senderAddressId)
 
-    // Build the transaction
-    let transactionToSend = Transactions.BuilderFactory
-        .transfer()
-        .recipientId(receiverAddress)
-        .amount(amount)
-        .fee(fee)
-        .version(2)
+    // manufacturer
+    const builder = new RegisterManufacturerBuilder();
+    let actual = builder
         .nonce(nextNonce)
+        .manufacturer("ANBkoGqWeTSiaEVgVzSKZd3jS7UWzv9PSo", "AES1212")
+        .fee(fee)
+        .sign(passphrase);
 
-    transactionToSend.data.type = 200;
-    transactionToSend.data.typeGroup = 2000;
-    transactionToSend.data.asset = {
-        AnticounterfeitRegisterManufacturerTransaction: {
-            ManufacturerAddressId: senderAddressId,
-            ProductPrefixID: "AES1212"
-        }
-    };
+    // simple transaction
+    // const builder = new SimpleTransactionBuilder();
+    // const actual = builder
+    //     .simpleData("123456")
+    //     .nonce(nextNonce)
+    //     .fee(fee)
+    //     .sign(passphrase);
 
-    // Set the bridge chain field
-    if (vendorField) transactionToSend.vendorField(vendorField)
 
-    return transactionToSend.sign(passphrase).getStruct()
+    // business transaction
+    // const builder = new BusinessRegistrationBuilder();
+    // const actual = builder
+    //        .businessData("facebook", "www.facebook.it")
+    //        .nonce(nextNonce)
+    //        .fee(fee)
+    //        .sign(passphrase);
+
+
+    if (vendorField) actual.vendorField(vendorField)
+    //console.log(transactionToSend.sign(passphrase).build().toJson())
+    return actual.getStruct(); //.sign(passphrase).getStruct()
 }
 
 /**
@@ -156,7 +167,7 @@ const init = async (customTransaction: boolean) => {
 
         // Sign the transaction with crypto lib
         let transactionToSend = null;
-        
+
         if (customTransaction) {
             transactionToSend = await signCustomTransaction(
                 recipientId, // Destination address
@@ -180,6 +191,7 @@ const init = async (customTransaction: boolean) => {
         // Submit the transaction to the blockchain
         res = await sendTransaction(transactionToSend)
         console.log(res.body.data);
+        console.log(JSON.stringify(res.body.errors));
 
     }
     catch (err) {
