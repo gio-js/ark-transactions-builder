@@ -1,4 +1,3 @@
-import { BusinessRegistrationTransaction, BusinessRegistrationBuilder, RegisterManufacturerBuilder, RegisterManufacturerTransaction } from './dist/transaction';
 /*
 Sign and submit a transaction with ARK Blockchain v2.6+
 Libs:
@@ -9,7 +8,11 @@ Libs:
 import { Connection } from '@arkecosystem/client'
 import { Transactions, Managers, Identities, Utils } from '@arkecosystem/crypto'
 import { ITransactionData } from '@arkecosystem/crypto/dist/interfaces'
-import { SimpleTransactionBuilder, SimpleTransaction } from './dist/transaction';
+import {
+    SimpleTransactionBuilder, SimpleTransaction,
+    BusinessRegistrationTransaction, BusinessRegistrationBuilder,
+    RegisterManufacturerBuilder, RegisterManufacturerTransaction
+} from './transaction';
 //import { RegisterManufacturerTransaction, RegisterManufacturerBuilder } from './dist/transaction';
 
 
