@@ -1,208 +1,192 @@
+import { AnticounterfeitRegisterManufacturerTransaction } from './common/ark-counterfeit-common/src/models';
 /*
-Sign and submit a transaction with ARK Blockchain v2.6+
-Libs:
-@arkecosystem/client: ^1.0.5
-@arkecosystem/crypto: ^2.6.0-next.6
+    La simulazione genera periodicamente nuovi produttori che entrano a far parte della catena.
+    Simula un device IoT che periodicamente crea un nuovo prodotto per un 
+    produttore scelto causalmente.    
 */
 
-import { Connection } from '@arkecosystem/client'
 import { Transactions, Managers, Identities, Utils } from '@arkecosystem/crypto'
-import { ITransactionData } from '@arkecosystem/crypto/dist/interfaces'
 import {
-    SimpleTransactionBuilder, SimpleTransaction,
-    BusinessRegistrationTransaction, BusinessRegistrationBuilder,
-    RegisterManufacturerBuilder, RegisterManufacturerTransaction
-} from './transaction';
-//import { RegisterManufacturerTransaction, RegisterManufacturerBuilder } from './dist/transaction';
+    AnticounterfeitRegisterProductTransaction, RegisterManufacturerTransaction,
+    RegisterProductTransaction,
+    RegisterProductBuilder
+} from './common/ark-counterfeit-common';
+import { VENDOR_FIELD } from './common/ark-counterfeit-common/src/const';
+import { RegisterManufacturerResponse } from './common/ark-counterfeit-common/src/rest/models';
+const axios = require('axios');
+var faker = require('faker/locale/it');
 
-
-
-const passphrase = "clay harbor enemy utility margin pretty hub comic piece aerobic umbrella acquire";
-const recipientId = "Ac9dCo9dFgAkkBdEBsoRAN4Mm6xMsgYdZx";
+// const passphrase = "clay harbor enemy utility margin pretty hub comic piece aerobic umbrella acquire";
+// const recipientId = "Ac9dCo9dFgAkkBdEBsoRAN4Mm6xMsgYdZx";
 //process.env.passphrase as string
-const apiURI = 'http://192.168.1.227:4003/api/v2'
-const network = 'testnet'
+const MAX_MANUFACTURER_REGISTRATIONS = 10;
+const BASE_URI = 'http://127.0.0.1:8090/api/'
+const manufacturers = []; // { request: AnticounterfeitRegisterManufacturerTransaction, response: RegisterManufacturerResponse }
 
-const connection = new Connection(apiURI)
+
+// const network = 'testnet'
+// const connection = new Connection(apiURI)
 
 
-/** Fetch the latest block height */
-const getLatestBlockHeight = async (): Promise<number> => (await connection.get('blockchain')).body.data.block.height
 
 /**
  * Initialize `@arkecosystem/crypto` lib settings
  * Set the latest available block height to use latest features
  */
 const initCrypto = async () => {
-    Managers.configManager.setFromPreset(network);
+    Managers.configManager.setFromPreset('testnet');
     Managers.configManager.setHeight(await getLatestBlockHeight());
     Transactions.TransactionRegistry.registerTransactionType(RegisterManufacturerTransaction);
-    Transactions.TransactionRegistry.registerTransactionType(SimpleTransaction);
-    Transactions.TransactionRegistry.registerTransactionType(BusinessRegistrationTransaction);
+    Transactions.TransactionRegistry.registerTransactionType(RegisterProductTransaction);
 }
 
-/** Compute the wallet address from a passphrase */
-const getWalletAddress = (passphrase: string) => Identities.Address.fromPassphrase(passphrase)
-
-/** Get a wallet */
-const getWallet = async (walletAddress: string) => {
-    return (await connection.api('wallets').get(walletAddress)).body.data;
+/** Fetch the latest block height */
+const getLatestBlockHeight = async (): Promise<number> => {
+    const height = (await axios.get(BASE_URI + 'blockchain/height')).data.Data;
+    console.log("Blockchain height: " + height);
+    return height;
 }
+
+// /** Compute the wallet address from a passphrase */
+// const getWalletAddress = (passphrase: string) => Identities.Address.fromPassphrase(passphrase)
 
 /** Get a wallet next transaction nonce */
-const getNextNonce = async (walletAddress: string) => {
-    const nonce = (await getWallet(walletAddress)).nonce;
-    return (parseInt(nonce, 10) + 1).toString()
+const getNextNonce = async (manufacturerAddress: string) => {
+    const nonce = (await axios.get(BASE_URI + 'manufacturer/nonce/' + manufacturerAddress)).data.Data;
+    console.log('Manufacturer next nonce: ' + nonce);
+    return nonce.toString();
 }
 
-/** Get a wallet balance */
-const getWalletBalance = async (walletAddress: string) => {
-    return (await getWallet(walletAddress)).balance;
-}
+// /** Get a wallet balance */
+// const getWalletBalance = async (walletAddress: string) => {
+//     return (await getWallet(walletAddress)).balance;
+// }
 
-/**
- * Build and sign a new transaction
- * @param receiverAddress Recipient wallet address
- * @param amount Amount of ARK to send in arktoshi (default = 0.1 ARK = 0.1 * 1e8 arktoshi)
- * @param fee Amount of ARK used for the transaction fee (default = 0.01 ARK = 0.01 * 1e8 arktoshi)
- * @param vendorField Vendor field (SmartBridge)
- */
-const signTransaction = async (
-    receiverAddress: string,
-    amount: string = `${0.1 * 1e8}`,
-    fee: string = `${0.01 * 1e8}`,
-    vendorField?: string,
-) => {
-    // Get wallet's next transaction nonce
-    const nextNonce = await getNextNonce(getWalletAddress(passphrase))
-
-    // Build the transaction
-    let transactionToSend = Transactions.BuilderFactory
-        .transfer()
-        .recipientId(receiverAddress)
-        .amount(amount)
-        .fee(fee)
-        .version(2)
-        .nonce(nextNonce)
-
-    // Set the bridge chain field
-    if (vendorField) transactionToSend.vendorField(vendorField)
-
-    return transactionToSend.sign(passphrase).getStruct()
-}
-
-/**
- * Send custom transaction
- */
-const signCustomTransaction = async (
-    receiverAddress: string,
-    amount: string = `${0.1 * 1e8}`,
-    fee: string = `${0.01 * 1e8}`,
-    vendorField?: string,
-) => {
-    const senderAddressId = getWalletAddress(passphrase);
-
-    // Get wallet's next transaction nonce
-    const nextNonce = await getNextNonce(senderAddressId)
-
-    // manufacturer
-    const builder = new RegisterManufacturerBuilder();
-    let actual = builder
-        .nonce(nextNonce)
-        .manufacturer("ANBkoGqWeTSiaEVgVzSKZd3jS7UWzv9PSo", "AES1212")
-        .fee(fee)
-        .sign(passphrase);
-
-    // simple transaction
-    // const builder = new SimpleTransactionBuilder();
-    // const actual = builder
-    //     .simpleData("123456")
-    //     .nonce(nextNonce)
-    //     .fee(fee)
-    //     .sign(passphrase);
-
-
-    // business transaction
-    // const builder = new BusinessRegistrationBuilder();
-    // const actual = builder
-    //        .businessData("facebook", "www.facebook.it")
-    //        .nonce(nextNonce)
-    //        .fee(fee)
-    //        .sign(passphrase);
-
-
-    if (vendorField) actual.vendorField(vendorField)
-    //console.log(transactionToSend.sign(passphrase).build().toJson())
-    return actual.getStruct(); //.sign(passphrase).getStruct()
-}
-
-/**
- * Submit a signed transaction to the blockchain
- * @param transaction Signed transaction
- */
-const sendTransaction = (transaction: ITransactionData) => connection.api('transactions')
-    .create({ transactions: [transaction] })
-
-
-const logBalances = async () => {
-    try {
-        //await initCrypto();
-
-        const senderId: string = getWalletAddress(passphrase);
-
-        // log balance
-        console.log(`Sender   : ${senderId}: ${(await getWalletBalance(senderId))}`);
-        console.log(`Recipient: ${recipientId}: ${(await getWalletBalance(recipientId))}`);
-    } catch (err) {
-        console.error(err);
-    }
+const registerManufacturer = async (model: AnticounterfeitRegisterManufacturerTransaction) => {
+    console.log('Produttore da creare: ' + JSON.stringify(model));
+    return await axios.post(BASE_URI + 'manufacturer', model);
 };
 
-const init = async (customTransaction: boolean) => {
-    let res = null;
+/** Registra un nuovo prodotto */
+const registerProduct = async (manufacturerPassphrase: string, model: AnticounterfeitRegisterProductTransaction) => {
 
-    try {
-        // Init crypto lib
-        await initCrypto()
+    // const manufacturerAddressId: string = "AR96ntq6d7PkE1Ws3EKcQRK8QNqgVpMudz";
+    // const manufacturerPassphrase: string = 'boat dizzy people marriage where betray yard oval split twice arm shove';
 
-        // log balance
-        await logBalances();
+    const nonce = await getNextNonce(model.ManufacturerAddressId);
+    const builder = new RegisterProductBuilder();
+    const transaction = builder
+        .nonce(nonce.toString())
+        .product(model.ProductId, model.Description, model.ManufacturerAddressId, model.Metadata)
+        .vendorField(VENDOR_FIELD)
+        .recipientId(model.ManufacturerAddressId)
+        .sign(manufacturerPassphrase)
+        .getStruct();
 
-        // Sign the transaction with crypto lib
-        let transactionToSend = null;
 
-        if (customTransaction) {
-            transactionToSend = await signCustomTransaction(
-                recipientId, // Destination address
-                "0", // Send 1 ARK
-                "5000000000", // Pay 0.1 ARK transaction fee
-                'UniMI-Anticounterfeit' // Bridge chain field (vendorField)
-            )
+    const response = await axios.post(BASE_URI + 'products', {
+        Asset: model,
+        Nonce: nonce.toString(),
+        SenderPublicKey: transaction.senderPublicKey,
+        Signature: transaction.signature,
+        TransactionId: transaction.id
+    });
 
-        }
-        else {
-            transactionToSend = await signTransaction(
-                recipientId, // Destination address
-                `${1 * 1e8}`, // Send 1 ARK
-                `${0.1 * 1e8}`, // Pay 0.1 ARK transaction fee
-                'UniMI-AntiCounterfeit' // Bridge chain field (vendorField)
-            );
-        }
-        //console.log(transactionToSend)
-        console.log(JSON.stringify(transactionToSend))
-
-        // Submit the transaction to the blockchain
-        res = await sendTransaction(transactionToSend)
-        console.log(res.body.data);
-        console.log(JSON.stringify(res.body.errors));
-
-    }
-    catch (err) {
-        console.error(err)
-    }
+    return response;
 }
 
-init(true)
-//logBalances()
+const generateRandomManufacturers = async () => {
 
-//new BusinessRegistrationTransaction();
+    if (manufacturers.length >= MAX_MANUFACTURER_REGISTRATIONS)
+        return;
+
+    console.log('Generazione di un nuovo produttore.');
+    //RegisterManufacturerResponse
+    //AnticounterfeitRegisterManufacturerTransaction
+    faker.seed(new Date().getUTCMilliseconds());
+
+    const model = {
+        ProductPrefixId: faker.random.number({
+            'min': 10001,
+            'max': 99999
+        }).toString(),
+        CompanyName: faker.company.companyName(),
+        CompanyFiscalCode: faker.random.number().toString(),
+        RegistrationContract: "VGhpcyBpcyBzaW1wbGUgQVNDSUkgQmFzZTY0IGZvciBTdGFja092ZXJmbG93IGV4YW1wbGUu"
+    };
+
+    try {
+
+        const response = await registerManufacturer(model);
+
+        if (!response.data || response.data.IsSuccess == false) {
+            throw new Error('Success false');
+        }
+
+        const pushElement = {
+            request: model,
+            response: response.data.Data
+        };
+        manufacturers.push(pushElement);
+        console.log('Produttore: ' + JSON.stringify(pushElement));
+    } catch (ex) {
+        console.error('Errore nella generazione del produttore: ', ex)
+    }
+
+    setTimeout(generateRandomManufacturers, 120000); // 2 minutes;
+};
+
+const generateRandomProducts = async () => {
+    try {
+        if (manufacturers.length == 0)
+            throw new Error('Nessun produttore trovato');
+    
+        console.log('Generazione di un nuovo prodotto.');
+        //RegisterManufacturerResponse
+        //AnticounterfeitRegisterManufacturerTransaction
+        faker.seed(new Date().getUTCMilliseconds());
+    
+        const manufacturerIndex = faker.random.number({
+            'min': 0,
+            'max': manufacturers.length
+        });
+        console.log('Produttore scelto: ' + manufacturers[manufacturerIndex].request.CompanyName);
+
+
+        const manufacturer = manufacturers[manufacturerIndex];
+        const productIdKey = faker.random.number({
+            'min': 100000001,
+            'max': 999999999
+        });
+        const productName = faker.commerce.productName();
+        const productType = faker.commerce.product();
+        const colorName = faker.commerce.color();
+        const colorPrice = faker.commerce.price();
+
+        const response = await registerProduct(manufacturer.response.ManufacturerPassphrase, {
+            ProductId: manufacturer.request.ProductPrefixId + "-" + productIdKey + "-" + (new Date()).getMinutes(),
+            Description: productName,
+            ManufacturerAddressId: manufacturer.response.ManufacturerAddressId,
+            Metadata: [productType, colorName, colorPrice.toString()]
+        });
+
+        if (!response.data || response.data.IsSuccess == false) {
+            throw new Error('Success false');
+        }
+        console.log('Creato prodotto: ' + productName + " per azienda " + manufacturers[manufacturerIndex].request.CompanyName);
+    } catch (ex) {
+        console.error('Errore nella generazione del prodotto: ', ex)
+    }
+
+    setTimeout(generateRandomProducts, 600000); // 10 minutes;
+
+};
+
+
+(() => {
+    initCrypto();
+    setTimeout(generateRandomManufacturers, 10);
+    setTimeout(generateRandomProducts, 60000);
+
+})();
+
