@@ -20,7 +20,9 @@ var faker = require('faker/locale/it');
 // const recipientId = "Ac9dCo9dFgAkkBdEBsoRAN4Mm6xMsgYdZx";
 //process.env.passphrase as string
 const MAX_MANUFACTURER_REGISTRATIONS = 10;
-const BASE_URI = 'http://127.0.0.1:8090/api/'
+// const BASE_URI = 'http://127.0.0.1:8090/api/'
+const BASE_URI = 'http://80.211.134.204:8090/api/'
+
 const manufacturers = []; // { request: AnticounterfeitRegisterManufacturerTransaction, response: RegisterManufacturerResponse }
 
 
