@@ -19,9 +19,9 @@ var faker = require('faker/locale/it');
 // const passphrase = "clay harbor enemy utility margin pretty hub comic piece aerobic umbrella acquire";
 // const recipientId = "Ac9dCo9dFgAkkBdEBsoRAN4Mm6xMsgYdZx";
 //process.env.passphrase as string
-const MAX_MANUFACTURER_REGISTRATIONS = 25;
-const BASE_URI = 'http://127.0.0.1:8090/api/'
-//const BASE_URI = 'http://80.211.134.204:8090/api/'
+const MAX_MANUFACTURER_REGISTRATIONS = 50;
+//const BASE_URI = 'http://127.0.0.1:8090/api/'
+const BASE_URI = 'http://80.211.134.204:8090/api/'
 
 const manufacturers = []; // { request: AnticounterfeitRegisterManufacturerTransaction, response: RegisterManufacturerResponse }
 
@@ -150,7 +150,7 @@ const generateRandomProducts = async () => {
     
         const manufacturerIndex = faker.random.number({
             'min': 0,
-            'max': manufacturers.length
+            'max': manufacturers.length - 1
         });
         console.log('Produttore scelto: ' + manufacturers[manufacturerIndex].request.CompanyName);
 
@@ -165,22 +165,24 @@ const generateRandomProducts = async () => {
         const colorName = faker.commerce.color();
         const colorPrice = faker.commerce.price();
 
+        let minute = (new Date()).getMinutes().toString();
+        minute = minute.substring(0, minute.length - minute.length) + minute;
         const response = await registerProduct(manufacturer.response.ManufacturerPassphrase, {
-            ProductId: manufacturer.request.ProductPrefixId + "-" + productIdKey + "-" + (new Date()).getMinutes(),
+            ProductId: manufacturer.request.ProductPrefixId + "-" + productIdKey + "-" + minute,
             Description: productName,
             ManufacturerAddressId: manufacturer.response.ManufacturerAddressId,
             Metadata: [productType, colorName, colorPrice.toString()]
         });
 
         if (!response.data || response.data.IsSuccess == false) {
-            throw new Error('Success false');
+            throw new Error('Success false: ' + JSON.stringify(response.data));
         }
         console.log('Creato prodotto: ' + productName + " per azienda " + manufacturers[manufacturerIndex].request.CompanyName);
     } catch (ex) {
         console.error('Errore nella generazione del prodotto: ', ex)
     }
 
-    setTimeout(generateRandomProducts, 600000); // 10 minutes;
+    setTimeout(generateRandomProducts, 120000); // 2 minutes;
 
 };
 
